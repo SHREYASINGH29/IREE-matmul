@@ -1,0 +1,55 @@
+<h1 id="implemetation-of-2d-matrix-multiplication">Implemetation of 2D Matrix Multiplication</h1>
+<h2 id="building-mlir">Building MLIR</h2>
+<pre><code class="language-sh">git clone https://github.com/llvm/llvm-project.git
+cd llvm-project; mkdir build; cd build
+cmake -G Ninja ../llvm -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_BUILD_EXAMPLES=ON -DLLVM_TARGETS_TO_BUILD=&quot;X86;NVPTX;AMDGPU&quot; -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=ON
+cmake --build . --target check-mlir
+cmake --build . --target opt
+</code></pre>
+<h2 id="simple-end-to-end-example-without-grid-no-transformation">Simple End-to-end Example Without Grid (No Transformation)</h2>
+<p>Somewhere outside the llvm-project directory create a directory</p>
+<pre><code class="language-sh">mkdir Simple
+cd Simple
+</code></pre>
+<p>Copy these two files files into Simple directory <a href="https://github.com/SHREYASINGH29/IREE-matmul/blob/master/Matmul4d/simple2d.mlir">simple.mlir</a>, <a href="https://github.com/SHREYASINGH29/IREE-matmul/blob/master/Matmul4d/wrapper2d.c">wrapper.c</a></p>
+<pre><code class="language-sh">export MLIR_PATH=&quot;/somepath/llvm-project/build&quot;
+</code></pre>
+<p>Lower to LLVM dialect</p>
+<pre><code class="language-sh">($MLIR_PATH/bin/mlir-opt simple.mlir -one-shot-bufferize=&quot;bufferize-function-boundaries=1 allow-return-allocs&quot; -drop-equivalent-buffer-results | $MLIR_PATH/bin/mlir-opt -convert-linalg-to-loops -convert-scf-to-cf -convert-linalg-to-llvm -lower-affine -convert-scf-to-cf --convert-memref-to-llvm -convert-func-to-llvm -reconcile-unrealized-casts | $MLIR_PATH/bin/mlir-translate -mlir-to-llvmir) &gt; simple.ll
+</code></pre>
+<p>Create optimized LLVM bytecode</p>
+<pre><code class="language-sh">$MLIR_PATH/bin/opt -O3 simple.ll -o simple.bc
+</code></pre>
+<p>Create object code</p>
+<pre><code class="language-sh">$MLIR_PATH/bin/llc -filetype=obj simple.bc
+</code></pre>
+<p>Create and run baseline plain-C version</p>
+<pre><code class="language-sh">gcc -Dbaseline=1 -O3 -o full wrapper.c; ./full
+</code></pre>
+<p>Create and run version with MLIR-generated function</p>
+<pre><code class="language-sh">gcc -Dbaseline=0 -O3 -o full wrapper.c simple.o; ./full
+</code></pre>
+<h2 id="simple-end-to-end-example-with-2d-gridno-transformation">Simple End-to-end Example with 2D Grid(No Transformation)</h2>
+<p>Somewhere outside the llvm-project directory create a directory</p>
+<pre><code class="language-sh">mkdir Simple2d
+cd Simple2d
+</code></pre>
+<p>Copy these two files files into Simple directory <a href="https://github.com/SHREYASINGH29/IREE-matmul/blob/master/Matmul4d/simple.mlir">simple2d.mlir</a>, <a href="https://github.com/SHREYASINGH29/IREE-matmul/blob/master/Matmul4d/wrapper.c">wrapper2d.c</a></p>
+<pre><code class="language-sh">export MLIR_PATH=&quot;/somepath/llvm-project/build&quot;
+</code></pre>
+<p>Lower to LLVM dialect</p>
+<pre><code class="language-sh">($MLIR_PATH/bin/mlir-opt simple2d.mlir -one-shot-bufferize=&quot;bufferize-function-boundaries=1 allow-return-allocs&quot; -drop-equivalent-buffer-results | $MLIR_PATH/bin/mlir-opt -convert-linalg-to-loops -convert-scf-to-cf -convert-linalg-to-llvm -lower-affine -convert-scf-to-cf --convert-memref-to-llvm -convert-func-to-llvm -reconcile-unrealized-casts | $MLIR_PATH/bin/mlir-translate -mlir-to-llvmir) &gt; simple2d.ll
+</code></pre>
+<p>Create optimized LLVM bytecode</p>
+<pre><code class="language-sh">$MLIR_PATH/bin/opt -O3 simple2d.ll -o simple2d.bc
+</code></pre>
+<p>Create object code</p>
+<pre><code class="language-sh">$MLIR_PATH/bin/llc -filetype=obj simple2d.bc
+</code></pre>
+<p>Create and run baseline plain-C version</p>
+<pre><code class="language-sh">gcc -Dbaseline=1 -O3 -o full wrapper2d.c; ./full
+</code></pre>
+<p>Create and run version with MLIR-generated function</p>
+<pre><code class="language-sh">gcc -Dbaseline=0 -O3 -o full wrapper2d.c simple2d.o; ./full
+</code></pre>
+
